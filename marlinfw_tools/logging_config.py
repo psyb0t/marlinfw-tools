@@ -43,18 +43,14 @@ def configure_logging(level: str, log_file: str) -> None:
     """Configure stderr and a bounded local log for each CLI invocation."""
     normalized_level = level.upper()
     if normalized_level not in _LOG_LEVELS:
-        raise ConfigurationError(
-            "log level must be DEBUG, INFO, WARNING, ERROR, or CRITICAL"
-        )
+        raise ConfigurationError("log level must be DEBUG, INFO, WARNING, ERROR, or CRITICAL")
     formatter = JSONFormatter()
     log_path = Path(log_file)
     try:
         log_path.parent.mkdir(parents=True, exist_ok=True)
         handlers: list[logging.Handler] = [
             logging.StreamHandler(),
-            RotatingFileHandler(
-                log_path, maxBytes=1_000_000, backupCount=3, encoding="utf-8"
-            ),
+            RotatingFileHandler(log_path, maxBytes=1_000_000, backupCount=3, encoding="utf-8"),
         ]
     except OSError as error:
         raise ConfigurationError("failed to open the configured log file") from error

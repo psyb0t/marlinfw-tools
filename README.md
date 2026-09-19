@@ -31,6 +31,57 @@ Dump firmware identity, active settings, temperatures, position, and endstops:
   --port /dev/serial/by-id/replace-with-printer-path
 ```
 
+Record temperatures, position, endstops, and SD status until `Ctrl+C`:
+
+```bash
+.agents/skills/marlinfw-control/scripts/marlinfw-tools.sh record \
+  --port /dev/serial/by-id/replace-with-printer-path \
+  | tee printer-events.jsonl
+```
+
+Add `--duration 300` for a five-minute recording. Recording is read-only. It
+does not start, pause, or stop a print, and `Ctrl+C` only closes the recorder.
+
+List the exact filenames Marlin exposes from the SD card:
+
+```bash
+.agents/skills/marlinfw-control/scripts/marlinfw-tools.sh sd-files \
+  --port /dev/serial/by-id/replace-with-printer-path
+```
+
+Start one exact SD file, wait through heating and homing, record one minute of
+detected first-layer motion, then abort the job and switch both heater targets
+off:
+
+```bash
+.agents/skills/marlinfw-control/scripts/marlinfw-tools.sh sd-print-monitor \
+  --port /dev/serial/by-id/replace-with-printer-path \
+  --file CE3_TE~1.GCO \
+  --observe-seconds 60 \
+  --apply --confirm-risk --confirm-supervised \
+  | tee first-layer-events.jsonl
+```
+
+That command changes machine state and requires a person at the printer. The
+event stream proves temperatures, coordinates, endstops, SD progress, and the
+acknowledged stop/cool commands. It cannot see extrusion quality, nozzle
+clearance, adhesion, smoke, or a mechanical crash. Watch the machine and use
+its physical controls or power switch if it behaves badly.
+
+The tested Ender-3 firmware reports a residency countdown as `W:<seconds>`
+while `M190` and `M109` block the command queue. The monitor waits past the
+final hotend `W:0` before polling. Its firmware reports
+`Cap:EMERGENCY_PARSER:0`, so `M524` cannot jump ahead of a blocking heat or
+homing command. No host script can fix that firmware limitation.
+
+Home all axes once, with somebody physically watching the machine:
+
+```bash
+.agents/skills/marlinfw-control/scripts/marlinfw-tools.sh home \
+  --port /dev/serial/by-id/replace-with-printer-path \
+  --apply --confirm-risk --confirm-supervised
+```
+
 Change one verified setting for the current power cycle:
 
 ```bash
@@ -56,6 +107,14 @@ approval, and `--confirm-persist`. The generic writer accepts a short list of
 reviewed calibration settings. It tells movement, heating, homing, endstop
 bypass, EEPROM reset, firmware flashing, raw pin control, emergency commands,
 and arbitrary G-code to fuck off.
+
+Homing has its own fixed command. It needs separate confirmation that somebody
+is watching the printer, and it reports position and endstops afterward.
+
+The guarded SD monitor has its own fixed start, watch, abort, and cool
+sequence. It never writes EEPROM. A successful summary means all four cleanup
+commands were acknowledged. Any missing acknowledgement is an error, not a
+fake success.
 
 Docker gets no network, no capabilities, a read-only filesystem, and only the
 chosen `/dev/serial/by-id/...` device. Freedom means owning the machine. It does
@@ -87,5 +146,7 @@ Code and Codex get one set of instructions instead of two stale copies.
 Available skills:
 
 - `marlinfw-inspect` reads the printer without moving or heating anything.
-- `marlinfw-control` changes one approved setting and can save it after proof.
+- `marlinfw-home` performs one explicitly approved, supervised homing cycle.
+- `marlinfw-control` lists SD files, records telemetry, runs the guarded SD
+  monitor, and changes one approved setting after proof.
 - `marlinfw-calibration` turns actual measurements into reversible changes.

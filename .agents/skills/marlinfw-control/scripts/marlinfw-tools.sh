@@ -23,6 +23,14 @@ usage() {
 Usage:
   marlinfw-tools.sh discover
   marlinfw-tools.sh inspect --port /dev/serial/by-id/<printer> [--baudrate N] [--timeout S]
+  marlinfw-tools.sh sd-files --port /dev/serial/by-id/<printer> [--baudrate N] [--timeout S]
+  marlinfw-tools.sh record --port /dev/serial/by-id/<printer> \
+      [--duration S] [--poll-interval S] [--baudrate N] [--timeout S]
+  marlinfw-tools.sh home --port /dev/serial/by-id/<printer> \\
+      --apply --confirm-risk --confirm-supervised [--baudrate N] [--timeout S]
+  marlinfw-tools.sh sd-print-monitor --port /dev/serial/by-id/<printer> --file NAME \
+      --apply --confirm-risk --confirm-supervised [--first-layer-timeout S] \
+      [--observe-seconds S] [--poll-interval S] [--baudrate N] [--timeout S]
   marlinfw-tools.sh send --port /dev/serial/by-id/<printer> --command 'M92 E...' \\
       --apply --confirm-risk [--save --confirm-persist]
 
@@ -50,10 +58,33 @@ docker_base_args=(
 
 require_stable_port() {
     local port="$1"
-    if [[ "$port" != "$stable_port_prefix"* ]]; then
+    local device_name="${port#"$stable_port_prefix"}"
+    if [[ "$port" != "$stable_port_prefix"* ]] \
+        || [[ -z "$device_name" ]] \
+        || [[ "$device_name" == */* ]] \
+        || [[ "$device_name" == '.' ]] \
+        || [[ "$device_name" == '..' ]]; then
         log ERROR "port must use stable /dev/serial/by-id path"
         exit 2
     fi
+}
+
+device_group_id_for_port() {
+    local port="$1"
+    local host_port="/host-dev/${port#/dev/}"
+    local device_group_id
+    if ! device_group_id=$(docker "${docker_base_args[@]}" \
+        --mount type=bind,source=/dev,target=/host-dev,readonly \
+        --entrypoint stat \
+        "$image" -Lc '%g' -- "$host_port"); then
+        log ERROR "cannot read printer device group port=$port"
+        return 2
+    fi
+    if [[ ! "$device_group_id" =~ ^[0-9]+$ ]]; then
+        log ERROR "printer device group is not a numeric GID port=$port"
+        return 2
+    fi
+    printf '%s\n' "$device_group_id"
 }
 
 if (($# == 0)); then
@@ -75,7 +106,7 @@ case "$operation" in
             --mount type=bind,source=/dev,target=/host-dev,readonly \
             "$image" ports --device-root /host-dev
         ;;
-    inspect | send)
+    inspect | sd-files | record | home | send | sd-print-monitor)
         port=''
         arguments=("$operation")
         while (($# > 0)); do
@@ -100,6 +131,9 @@ case "$operation" in
             exit 2
         fi
         require_stable_port "$port"
+        if ! device_group_id=$(device_group_id_for_port "$port"); then
+            exit 2
+        fi
         if [[ "$operation" == 'send' ]] && [[ " ${arguments[*]} " != *' --apply '* ]]; then
             log ERROR "send requires --apply"
             exit 2
@@ -113,8 +147,37 @@ case "$operation" in
             log ERROR "--save requires --confirm-persist after follow-up inspection"
             exit 2
         fi
+        if [[ "$operation" == 'home' ]] && [[ " ${arguments[*]} " != *' --apply '* ]]; then
+            log ERROR "home requires --apply"
+            exit 2
+        fi
+        if [[ "$operation" == 'home' ]] && [[ " ${arguments[*]} " != *' --confirm-risk '* ]]; then
+            log ERROR "home requires --confirm-risk after direct user approval"
+            exit 2
+        fi
+        if [[ "$operation" == 'home' ]] \
+            && [[ " ${arguments[*]} " != *' --confirm-supervised '* ]]; then
+            log ERROR "home requires --confirm-supervised with an operator present"
+            exit 2
+        fi
+        if [[ "$operation" == 'sd-print-monitor' ]] \
+            && [[ " ${arguments[*]} " != *' --apply '* ]]; then
+            log ERROR "sd-print-monitor requires --apply"
+            exit 2
+        fi
+        if [[ "$operation" == 'sd-print-monitor' ]] \
+            && [[ " ${arguments[*]} " != *' --confirm-risk '* ]]; then
+            log ERROR "sd-print-monitor requires --confirm-risk after direct user approval"
+            exit 2
+        fi
+        if [[ "$operation" == 'sd-print-monitor' ]] \
+            && [[ " ${arguments[*]} " != *' --confirm-supervised '* ]]; then
+            log ERROR "sd-print-monitor requires --confirm-supervised with an operator present"
+            exit 2
+        fi
         log INFO "running printer operation"
         exec docker "${docker_base_args[@]}" \
+            --group-add "$device_group_id" \
             --device "$port:$port:rwm" \
             "$image" "${arguments[@]}"
         ;;

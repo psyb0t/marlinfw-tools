@@ -34,6 +34,7 @@ FROM base AS test
 COPY --from=dependencies /install /usr/local
 COPY --from=ruff /ruff /usr/local/bin/ruff
 COPY --from=shellcheck /bin/shellcheck /usr/local/bin/shellcheck
+COPY pyproject.toml /work/pyproject.toml
 COPY marlinfw_tools /work/marlinfw_tools
 COPY tests /work/tests
 COPY .agents/skills/marlinfw-control/scripts/marlinfw-tools.sh /work/marlinfw-tools.sh

@@ -1,0 +1,16 @@
+title = "marlinfw-tools secret scanning"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Ignored local agent state, research, tests, caches, and release helper"
+paths = [
+  '''(^|/)AGENTS\.md$''',
+  '''(^|/)CLAUDE\.md$''',
+  '''(^|/)\.agent_notes(?:/|$)''',
+  '''(^|/)\.research_files(?:/|$)''',
+  '''(^|/)\.testing(?:/|$)''',
+  '''(^|/)\.ruff_cache(?:/|$)''',
+  '''(^|/)git-update\.sh$''',
+]

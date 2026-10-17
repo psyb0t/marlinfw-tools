@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1
+
+- A release tag no longer rebuilds the image. The default branch builds and tests each commit once and pushes it as `sha-<commit>` as well as `latest`; a tag waits for that run, re-points the release tag at the same image by digest, and cuts the GitHub release from the tag's notes.
+
 ## 0.2.0
 
 - The four agent skills (`marlinfw-inspect`, `marlinfw-control`, `marlinfw-home`, `marlinfw-calibration`) are now one skill, `marlinfw-tools`, with the wrapper script and references inside it. It installs from the psyb0t marketplace in Claude Code and Codex, and from ClawHub in OpenClaw.

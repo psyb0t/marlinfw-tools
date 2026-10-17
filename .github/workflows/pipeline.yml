@@ -4,14 +4,19 @@ on: [push]
 
 jobs:
   # make lint and make test build their Docker test stage and run against the
-  # pseudo-terminal printer fixture; no real printer is touched.
+  # pseudo-terminal printer fixture; no real printer is touched. A tag reuses
+  # the default-branch run of the same commit instead of testing it again.
   checks:
+    if: github.ref_type == 'branch'
     permissions:
       contents: read
     uses: psyb0t/reusable-github-workflows/.github/workflows/make-checks.yml@master
 
+  # The default branch builds the image once and also tags it sha-<commit>,
+  # so a release tag on that commit can promote it instead of rebuilding.
   call-docker-image-workflow:
     needs: [checks]
+    if: github.ref_name == github.event.repository.default_branch
     permissions:
       contents: write # GitHub Release
       security-events: write # upload the Grype SARIF to the Security tab
@@ -21,8 +26,8 @@ jobs:
       target_platforms: "linux/amd64,linux/arm64"
       # The Dockerfile ends on the test stage; publish only the runtime image.
       build_targets: '[{"target":"runtime"}]'
-      # Report scan findings to the Security tab but don't fail the run, so the
-      # clawhub publish job below can depend on this workflow succeeding.
+      push_sha_tag: true
+      # Report scan findings to the Security tab but don't fail the run.
       scan_fail_build: false
     secrets:
       dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -30,15 +35,58 @@ jobs:
 
   badges:
     needs: [call-docker-image-workflow]
-    if: github.ref_name == github.event.repository.default_branch || startsWith(github.ref, 'refs/tags/')
+    if: github.ref_name == github.event.repository.default_branch
+    permissions:
+      contents: write
+    uses: psyb0t/reusable-github-workflows/.github/workflows/create-badges.yml@master
+
+  # A release tag waits for the default-branch run of its commit, which
+  # already tested and built it, then promotes that image by digest.
+  wait-for-default-branch:
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      actions: read
+    uses: psyb0t/reusable-github-workflows/.github/workflows/wait-for-default-branch.yml@master
+
+  promote-image:
+    needs: [wait-for-default-branch]
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      # The called workflow's release job asks for write even when
+      # create_release turns it off, and GitHub checks that up front.
+      contents: write
+      security-events: write # upload the Grype SARIF to the Security tab
+    uses: psyb0t/reusable-github-workflows/.github/workflows/docker-image-workflow.yml@master
+    with:
+      repository_name: psyb0t/marlinfw-tools
+      target_platforms: "linux/amd64,linux/arm64"
+      build_targets: '[{"target":"runtime"}]'
+      promote_on_tag: true
+      # The release job below cuts the release from the tag's own notes.
+      create_release: false
+      scan_fail_build: false
+    secrets:
+      dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
+      dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  release:
+    needs: [promote-image]
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    uses: psyb0t/reusable-github-workflows/.github/workflows/release-workflow.yml@master
+
+  release-badges:
+    needs: [release]
+    if: startsWith(github.ref, 'refs/tags/')
     permissions:
       contents: write
     uses: psyb0t/reusable-github-workflows/.github/workflows/create-badges.yml@master
 
   # Publish the skill to ClawHub on tag pushes only, after the image it runs is
-  # on Docker Hub.
+  # promoted on Docker Hub.
   publish-to-clawhub:
-    needs: [call-docker-image-workflow]
+    needs: [promote-image]
     if: startsWith(github.ref, 'refs/tags/')
     permissions:
       contents: read

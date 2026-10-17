@@ -1,5 +1,9 @@
+# Claude Code reads CLAUDE.md and .claude, not AGENTS.md and .agents. Both are
+# local symlinks onto the committed files, never committed themselves.
+CLAUDE.md
+.claude
+
 # Codex / agent scratch. Never commit.
-AGENTS.md
 CODEX.local.md
 .research_files/
 .agent_notes/

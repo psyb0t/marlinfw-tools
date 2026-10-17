@@ -1,0 +1,23 @@
+{
+  "name": "marlinfw-tools",
+  "version": "0.2.0",
+  "description": "Inspect and carefully control a USB-connected Marlin 3D printer (Ender 3 and similar) from a locked-down Docker container: firmware and settings reports, telemetry, SD listings, supervised homing, single audited calibration writes and a supervised first-layer test.",
+  "author": {
+    "name": "psyb0t",
+    "url": "https://github.com/psyb0t"
+  },
+  "homepage": "https://github.com/psyb0t/marlinfw-tools",
+  "repository": "https://github.com/psyb0t/marlinfw-tools",
+  "license": "WTFPL",
+  "keywords": [
+    "marlin",
+    "3d-printing",
+    "3d-printer",
+    "ender-3",
+    "gcode",
+    "serial",
+    "calibration",
+    "docker"
+  ],
+  "skills": "./skills/"
+}

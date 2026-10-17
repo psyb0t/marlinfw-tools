@@ -46,3 +46,6 @@ __pycache__/
 
 # Local release helper
 git-update.sh
+
+# Local release script and its review receipt.
+git-update.sh.debot

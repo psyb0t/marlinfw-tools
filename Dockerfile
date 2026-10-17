@@ -37,7 +37,7 @@ COPY --from=shellcheck /bin/shellcheck /usr/local/bin/shellcheck
 COPY pyproject.toml /work/pyproject.toml
 COPY marlinfw_tools /work/marlinfw_tools
 COPY tests /work/tests
-COPY .agents/skills/marlinfw-control/scripts/marlinfw-tools.sh /work/marlinfw-tools.sh
+COPY .agents/skills/marlinfw-tools/scripts/marlinfw-tools.sh /work/marlinfw-tools.sh
 COPY tests/fixtures/docker-fixture.sh /usr/local/bin/docker
 RUN chmod 0555 /usr/local/bin/docker
 

@@ -31,7 +31,7 @@ test-integration: ## Test the real Docker wrapper without real hardware.
 test-real: ## Read one real printer without changing the damn thing.
 
 	@test -n "$(PORT)" || { echo "PORT is required" >&2; exit 2; }
-	.agents/skills/marlinfw-control/scripts/marlinfw-tools.sh inspect --port "$(PORT)"
+	.agents/skills/marlinfw-tools/scripts/marlinfw-tools.sh inspect --port "$(PORT)"
 
 lint: ## Check the Python and shell code in Docker.
 

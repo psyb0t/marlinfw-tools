@@ -1,0 +1,50 @@
+name: pipeline
+
+on: [push]
+
+jobs:
+  # make lint and make test build their Docker test stage and run against the
+  # pseudo-terminal printer fixture; no real printer is touched.
+  checks:
+    permissions:
+      contents: read
+    uses: psyb0t/reusable-github-workflows/.github/workflows/make-checks.yml@master
+
+  call-docker-image-workflow:
+    needs: [checks]
+    permissions:
+      contents: write # GitHub Release
+      security-events: write # upload the Grype SARIF to the Security tab
+    uses: psyb0t/reusable-github-workflows/.github/workflows/docker-image-workflow.yml@master
+    with:
+      repository_name: psyb0t/marlinfw-tools
+      target_platforms: "linux/amd64,linux/arm64"
+      # The Dockerfile ends on the test stage; publish only the runtime image.
+      build_targets: '[{"target":"runtime"}]'
+      # Report scan findings to the Security tab but don't fail the run, so the
+      # clawhub publish job below can depend on this workflow succeeding.
+      scan_fail_build: false
+    secrets:
+      dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
+      dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  badges:
+    needs: [call-docker-image-workflow]
+    if: github.ref_name == github.event.repository.default_branch || startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    uses: psyb0t/reusable-github-workflows/.github/workflows/create-badges.yml@master
+
+  # Publish the skill to ClawHub on tag pushes only, after the image it runs is
+  # on Docker Hub.
+  publish-to-clawhub:
+    needs: [call-docker-image-workflow]
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: read
+    uses: psyb0t/reusable-github-workflows/.github/workflows/clawhub-publish.yml@master
+    with:
+      skill_names: '["marlinfw-tools"]'
+      plugin_names: "[]"
+    secrets:
+      clawhub_token: ${{ secrets.CLAWHUB_TOKEN }}

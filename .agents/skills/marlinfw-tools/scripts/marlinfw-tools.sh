@@ -2,7 +2,7 @@
 set -euo pipefail
 trap 'log ERROR "command failed exit=$?"' ERR
 
-readonly default_image='ghcr.io/psyb0t/marlinfw-tools:latest'
+readonly default_image='psyb0t/marlinfw-tools:latest'
 readonly stable_port_prefix='/dev/serial/by-id/'
 
 log() {
@@ -34,7 +34,7 @@ Usage:
   marlinfw-tools.sh send --port /dev/serial/by-id/<printer> --command 'M92 E...' \\
       --apply --confirm-risk [--save --confirm-persist]
 
-MARLINFW_TOOLS_IMAGE overrides ghcr.io/psyb0t/marlinfw-tools:latest.
+MARLINFW_TOOLS_IMAGE overrides psyb0t/marlinfw-tools:latest.
 Arbitrary G-code is unsupported.
 EOF
 }

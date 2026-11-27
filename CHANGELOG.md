@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.3
+
+- The skill now covers only using the tool on a connected printer: finding the printer, inspecting it, recording telemetry, listing SD files, supervised homing, single setting writes and the first-layer monitor. Its Setup section says the tool must already be installed and points to the README. The Docker and image details are out of the skill, and its frontmatter permissions describe what the commands read and write.
+- `references/device-access.md` is removed. The skill keeps its two practical points inline: use a data-capable USB cable with no other program holding the serial port, and the default baud rate is 115200.
+
 ## 0.2.2
 
 - The skill now says which commands change the printer. `home`, `send` and `sd-print-monitor` move, heat or reconfigure it, and each needs the user's approval first. The skill lists the exact commands `home` and `sd-print-monitor` send, including the stop-and-cool sequence that ends the SD test, and says `send` accepts only `M92`, `M201`, `M203`, `M204`, `M205`, `M206`, `M301` and `M304`, enforced by the image rather than the wrapper script. The wrapper's usage text and the Ender 3 reference say the same, and the reference no longer claims the tool never sends `G28` or the heater commands.

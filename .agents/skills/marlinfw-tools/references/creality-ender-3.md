@@ -35,7 +35,9 @@ between variants merely because both have "Ender 3" in the name.
    If approved, use `--save --confirm-persist` and retain the before and after
    reports.
 
-## Commands this tool does not send
+## Commands the generic writer blocks
+
+`send` rejects every family below. `home` and `sd-print-monitor` send their own fixed sequences, which include `G28`, `M24`, `M104 S0` and `M140 S0`, and run only behind their confirmation flags.
 
 | Family | Why it is excluded |
 | --- | --- |

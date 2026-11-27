@@ -11,8 +11,8 @@ metadata:
       bins:
         - docker
 permissions:
-  filesystem: "Runs the bundled wrapper script, scripts/marlinfw-tools.sh. Writes only the report files you tee its output into."
-  shell: "Docker, through the bundled wrapper only. It pulls psyb0t/marlinfw-tools and runs it with no network, a read-only root, all capabilities dropped and exactly one printer device."
+  filesystem: "Writes only the report files you tee the wrapper's output into. The wrapper bind-mounts /dev read-only into a short-lived container to list serial devices and read the printer device's group ID, and passes exactly one /dev/serial/by-id/ device to the container read-write."
+  shell: "Docker, through the bundled wrapper scripts/marlinfw-tools.sh only. It runs psyb0t/marlinfw-tools with no network, a read-only root, all capabilities dropped and exactly one printer device. With the user's approval for each, the commands home, send and sd-print-monitor move, heat or reconfigure the physical printer."
   network: "Docker pulls the image from Docker Hub. The container itself runs with --network=none and talks only to the printer over USB serial."
 ---
 
@@ -28,7 +28,8 @@ All operations go through `scripts/marlinfw-tools.sh`, relative to this skill's 
 - `home` and `sd-print-monitor` also need `--confirm-supervised`: the user must be at the printer with the power switch in reach.
 - Serial telemetry cannot judge nozzle clearance, extrusion, adhesion, smoke or collisions. Never report physical safety from it.
 - On firmware that reports `Cap:EMERGENCY_PARSER:0`, serial `M524` cannot interrupt a blocking `M190`, `M109` or homing command. The user's physical stop is the only fast stop.
-- The tool never sends movement, heating, leveling, pin control, emergency stop, EEPROM load or reset, firmware update or arbitrary G-code. `send` accepts only `M92`, `M201`, `M203`, `M204`, `M205`, `M206`, `M301` and `M304`.
+- `send` accepts only `M92`, `M201`, `M203`, `M204`, `M205`, `M206`, `M301` and `M304`. The image enforces this list, not the wrapper script, and rejects every other command, including motion, heating, leveling, pin control, emergency stop, EEPROM load or reset and firmware update. With `--save` it then adds `M500`.
+- The only commands that move or heat the printer are the fixed sequences of `home` (`G28`, `M114`, `M119`) and `sd-print-monitor` (`M20`, `M155 S1`, `M23`, `M24`, then `M114`, `M119` and `M27` polling, and `M524`, `M104 S0`, `M140 S0`, `M155 S0` to stop and cool). Starting the SD file with `M24` makes the printer heat, home and move on its own, which is why that command needs the user at the printer.
 
 ## When to use
 

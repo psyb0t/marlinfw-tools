@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.2
+
+- The skill now says which commands change the printer. `home`, `send` and `sd-print-monitor` move, heat or reconfigure it, and each needs the user's approval first. The skill lists the exact commands `home` and `sd-print-monitor` send, including the stop-and-cool sequence that ends the SD test, and says `send` accepts only `M92`, `M201`, `M203`, `M204`, `M205`, `M206`, `M301` and `M304`, enforced by the image rather than the wrapper script. The wrapper's usage text and the Ender 3 reference say the same, and the reference no longer claims the tool never sends `G28` or the heater commands.
+- The skill frontmatter describes the read-only `/dev` mount that `discover` and the device group lookup use, and the one printer device passed read-write.
+- The copy of the skill published to ClawHub names the exact release image by digest instead of `latest`. The repository files keep `latest`.
+- The wrapper's usage text no longer shows a doubled backslash after the `home` and `send` lines.
+- The pipeline runs lint and the tests through the shared code workflow. A tag's image promotion no longer repeats the vulnerability scan or the Docker Hub description update that the `main` run already did, and the image job states its Docker Hub visibility and description settings.
+
 ## 0.2.1
 
 - A release tag no longer rebuilds the image. The default branch builds and tests each commit once and pushes it as `sha-<commit>` as well as `latest`; a tag waits for that run, re-points the release tag at the same image by digest, and cuts the GitHub release from the tag's notes.

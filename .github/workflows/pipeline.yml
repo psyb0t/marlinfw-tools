@@ -1,22 +1,34 @@
 name: pipeline
 
+# Every branch push runs lint and the tests. A push to main then builds the
+# image and publishes :latest and :sha-<commit>. A v* tag waits for that
+# commit's main run to succeed, promotes the same image digests to the release
+# tag without rebuilding, cuts the GitHub release, and publishes the skill to
+# ClawHub.
 on: [push]
+
+permissions: {}
 
 jobs:
   # make lint and make test build their Docker test stage and run against the
   # pseudo-terminal printer fixture; no real printer is touched. A tag reuses
-  # the default-branch run of the same commit instead of testing it again.
-  checks:
-    if: github.ref_type == 'branch'
+  # the main run of the same commit instead of testing it again.
+  code:
+    if: "!startsWith(github.ref, 'refs/tags/')"
     permissions:
       contents: read
-    uses: psyb0t/reusable-github-workflows/.github/workflows/make-checks.yml@master
+      security-events: write
+    uses: psyb0t/reusable-github-workflows/.github/workflows/code-workflow.yml@master
+    with:
+      lint_command: "make lint"
+      test_command: "make test"
 
-  # The default branch builds the image once and also tags it sha-<commit>,
-  # so a release tag on that commit can promote it instead of rebuilding.
-  call-docker-image-workflow:
-    needs: [checks]
-    if: github.ref_name == github.event.repository.default_branch
+  # Only a push to the default branch builds the image; other branches stop
+  # after the code job. It also tags the image sha-<commit>, so a release tag
+  # on that commit can promote it instead of rebuilding.
+  docker:
+    needs: [code]
+    if: "!startsWith(github.ref, 'refs/tags/') && github.event_name == 'push' && github.ref_name == github.event.repository.default_branch"
     permissions:
       contents: write # GitHub Release
       security-events: write # upload the Grype SARIF to the Security tab
@@ -29,27 +41,22 @@ jobs:
       push_sha_tag: true
       # Report scan findings to the Security tab but don't fail the run.
       scan_fail_build: false
+      dockerhub_private: false
+      sync_description: true
     secrets:
       dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
       dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
 
-  badges:
-    needs: [call-docker-image-workflow]
-    if: github.ref_name == github.event.repository.default_branch
-    permissions:
-      contents: write
-    uses: psyb0t/reusable-github-workflows/.github/workflows/create-badges.yml@master
-
-  # A release tag waits for the default-branch run of its commit, which
-  # already tested and built it, then promotes that image by digest.
-  wait-for-default-branch:
+  # A release tag waits for the main run of its commit, which already tested
+  # and built it, then promotes that image by digest.
+  wait:
     if: startsWith(github.ref, 'refs/tags/')
     permissions:
       actions: read
     uses: psyb0t/reusable-github-workflows/.github/workflows/wait-for-default-branch.yml@master
 
-  promote-image:
-    needs: [wait-for-default-branch]
+  docker-promote:
+    needs: [wait]
     if: startsWith(github.ref, 'refs/tags/')
     permissions:
       # The called workflow's release job asks for write even when
@@ -64,29 +71,31 @@ jobs:
       promote_on_tag: true
       # The release job below cuts the release from the tag's own notes.
       create_release: false
-      scan_fail_build: false
+      # The main run already scanned this digest and set the description.
+      scan_enabled: false
+      sync_description: false
     secrets:
       dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
       dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
 
   release:
-    needs: [promote-image]
+    needs: [docker-promote]
     if: startsWith(github.ref, 'refs/tags/')
     permissions:
       contents: write
     uses: psyb0t/reusable-github-workflows/.github/workflows/release-workflow.yml@master
 
-  release-badges:
-    needs: [release]
-    if: startsWith(github.ref, 'refs/tags/')
+  badges:
+    needs: [code, release]
+    if: "always() && ((github.ref_name == github.event.repository.default_branch && needs.code.result == 'success') || (startsWith(github.ref, 'refs/tags/') && needs.release.result == 'success'))"
     permissions:
       contents: write
     uses: psyb0t/reusable-github-workflows/.github/workflows/create-badges.yml@master
 
-  # Publish the skill to ClawHub on tag pushes only, after the image it runs is
-  # promoted on Docker Hub.
+  # Publish the skill to ClawHub on tag pushes only, after the release and the
+  # image it runs exist.
   publish-to-clawhub:
-    needs: [promote-image]
+    needs: [release]
     if: startsWith(github.ref, 'refs/tags/')
     permissions:
       contents: read
@@ -94,5 +103,8 @@ jobs:
     with:
       skill_names: '["marlinfw-tools"]'
       plugin_names: "[]"
+      # The skill and its wrapper script name psyb0t/marlinfw-tools:latest; the
+      # published copy gets the release image instead.
+      pin_images: '["psyb0t/marlinfw-tools"]'
     secrets:
       clawhub_token: ${{ secrets.CLAWHUB_TOKEN }}

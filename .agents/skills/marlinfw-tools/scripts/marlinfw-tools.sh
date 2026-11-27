@@ -26,16 +26,18 @@ Usage:
   marlinfw-tools.sh sd-files --port /dev/serial/by-id/<printer> [--baudrate N] [--timeout S]
   marlinfw-tools.sh record --port /dev/serial/by-id/<printer> \
       [--duration S] [--poll-interval S] [--baudrate N] [--timeout S]
-  marlinfw-tools.sh home --port /dev/serial/by-id/<printer> \\
+  marlinfw-tools.sh home --port /dev/serial/by-id/<printer> \
       --apply --confirm-risk --confirm-supervised [--baudrate N] [--timeout S]
   marlinfw-tools.sh sd-print-monitor --port /dev/serial/by-id/<printer> --file NAME \
       --apply --confirm-risk --confirm-supervised [--first-layer-timeout S] \
       [--observe-seconds S] [--poll-interval S] [--baudrate N] [--timeout S]
-  marlinfw-tools.sh send --port /dev/serial/by-id/<printer> --command 'M92 E...' \\
+  marlinfw-tools.sh send --port /dev/serial/by-id/<printer> --command 'M92 E...' \
       --apply --confirm-risk [--save --confirm-persist]
 
 MARLINFW_TOOLS_IMAGE overrides psyb0t/marlinfw-tools:latest.
-Arbitrary G-code is unsupported.
+send accepts only the setting commands M92, M201, M203, M204, M205, M206,
+M301 and M304; the image rejects any other G-code. home and sd-print-monitor
+send fixed command sequences that move or heat the printer.
 EOF
 }
 
